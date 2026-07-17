@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#22252D">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Chore Ledger</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --paper:#EDF0E7;
+    --card-bg:#F7F6EF;
+    --receipt-bg:#FFFFFF;
+    --ink:#22252D;
+    --ink-soft:#585C52;
+    --line:#D3D6C7;
+    --childA:#2E6F95;
+    --childA-soft:#E4EEF3;
+    --childB:#C98A2B;
+    --childB-soft:#F5EBD9;
+    --money:#3F7D58;
+    --danger:#B33A3A;
+    --danger-soft:#F5E4E1;
+    --radius:14px;
+    --font-display:'Fredoka',sans-serif;
+    --font-body:'Inter',sans-serif;
+    --font-mono:'JetBrains Mono',monospace;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:var(--font-body);
+    color:var(--ink);
+    background-color:var(--paper);
+    background-image:repeating-linear-gradient(180deg, rgba(0,0,0,0.025) 0px, rgba(0,0,0,0.025) 1px, transparent 1px, transparent 34px);
+    padding:0;
+  }
+  #app{max-width:1080px;margin:0 auto;padding:20px 20px 60px;}
+  button{font-family:var(--font-body);cursor:pointer;}
+  .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;}
+
+  /* ---------- header ---------- */
+  .topbar{
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;
+    gap:14px;padding:18px 0 20px;border-bottom:2px solid var(--ink);margin-bottom:22px;
+  }
+  .brand-eyebrow{
+    display:block;font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;
+    color:var(--ink-soft);text-transform:uppercase;margin-bottom:2px;
+  }
+  .brand h1{
+    font-family:var(--font-display);font-weight:600;font-size:30px;margin:0;letter-spacing:-0.01em;
+  }
+  .week-nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:8px;}
+  .week-nav .nav-circle{
+    width:34px;height:34px;border-radius:50%;border:1.5px solid var(--ink);background:transparent;
+    font-size:16px;line-height:1;color:var(--ink);flex-shrink:0;padding:0;
+  }
+  .week-nav .nav-circle:hover{background:var(--ink);color:var(--paper);}
+  .week-label{font-family:var(--font-mono);font-size:14px;min-width:150px;text-align:center;flex-shrink:0;}
+  .today-btn{
+    border:1.5px solid var(--ink);background:transparent;border-radius:999px;padding:9px 16px;
+    font-size:13px;font-weight:500;color:var(--ink);white-space:nowrap;flex-shrink:0;width:auto;height:auto;
+  }
+  .today-btn:hover{background:var(--ink);color:var(--paper);}
+  .actions{display:flex;gap:10px;}
+  .actions button{
+    border:1.5px solid var(--ink);background:var(--ink);color:var(--paper);border-radius:999px;
+    padding:9px 16px;font-size:13px;font-weight:500;
+  }
+  .actions button.secondary{background:transparent;color:var(--ink);}
+  .actions button:hover{opacity:0.82;}
+
+  /* ---------- child cards ---------- */
+  .cards{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start;}
+  .child-card{
+    flex:1 1 440px;min-width:320px;background:var(--card-bg);border-radius:var(--radius);
+    border:1px solid var(--line);padding:18px 18px 22px;
+  }
+  .child-card[data-child="A"]{--accent:var(--childA);--accent-soft:var(--childA-soft);}
+  .child-card[data-child="B"]{--accent:var(--childB);--accent-soft:var(--childB-soft);}
+  .card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:10px;}
+  .card-head .name-wrap{display:flex;align-items:center;gap:8px;min-width:0;}
+  .child-name{
+    font-family:var(--font-display);font-weight:600;font-size:20px;color:var(--accent);
+    outline:none;border-bottom:1.5px dashed transparent;padding:0 2px;min-width:20px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .child-name:hover, .child-name:focus{border-bottom-color:var(--accent);}
+  .edit-hint{font-size:11px;color:var(--ink-soft);font-family:var(--font-mono);}
+  .running-total{
+    font-family:var(--font-mono);font-weight:700;font-size:18px;color:var(--money);
+    background:var(--accent-soft);padding:5px 12px;border-radius:8px;white-space:nowrap;
+  }
+  .grid-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--line);background:var(--receipt-bg);}
+  table.chore-grid{width:100%;border-collapse:collapse;font-size:13px;min-width:460px;}
+  table.chore-grid th, table.chore-grid td{padding:8px 6px;text-align:center;border-bottom:1px solid var(--line);}
+  table.chore-grid th{
+    font-family:var(--font-mono);font-weight:500;font-size:11px;color:var(--ink-soft);
+    text-transform:uppercase;letter-spacing:0.03em;background:var(--card-bg);
+  }
+  table.chore-grid th.chore-col, table.chore-grid td.chore-name{text-align:left;padding-left:12px;}
+  table.chore-grid td.chore-name{font-weight:500;}
+  table.chore-grid td.chore-name .amt{
+    display:block;font-family:var(--font-mono);font-size:11px;color:var(--ink-soft);font-weight:400;
+  }
+  table.chore-grid td.chore-name .legacy-tag{
+    font-family:var(--font-mono);font-size:10px;color:var(--danger);display:block;
+  }
+  th.today-col, td.today-col{background:var(--accent-soft);}
+  th.today-col{color:var(--accent);}
+  table.chore-grid tr:last-child td{border-bottom:none;}
+
+  .cell-check{
+    width:26px;height:26px;border-radius:50%;border:1.5px solid var(--line);background:var(--receipt-bg);
+    display:inline-flex;align-items:center;justify-content:center;padding:0;position:relative;
+  }
+  .cell-check:hover{border-color:var(--accent);}
+  .cell-check[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);}
+  .cell-check[aria-pressed="true"]::after{
+    content:"✓";color:#fff;font-size:14px;font-weight:700;
+  }
+  .cell-check:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+
+  .row-actions{text-align:right !important;}
+  .row-remove{
+    border:none;background:transparent;color:var(--ink-soft);font-size:15px;line-height:1;padding:4px;
+  }
+  .row-remove:hover{color:var(--danger);}
+
+  /* ---------- receipt ---------- */
+  .receipt{
+    margin-top:16px;background:var(--receipt-bg);padding:16px 18px 20px;position:relative;
+    border-radius:2px;box-shadow:0 1px 0 var(--line);
+  }
+  .receipt::after{
+    content:"";position:absolute;left:0;right:0;bottom:-9px;height:9px;
+    background:
+      linear-gradient(135deg, var(--card-bg) 50%, transparent 50%),
+      linear-gradient(45deg, var(--card-bg) 50%, transparent 50%);
+    background-size:12px 12px;background-position:bottom;
+  }
+  .receipt-title{
+    font-family:var(--font-mono);font-size:11px;letter-spacing:0.14em;text-align:center;
+    color:var(--ink-soft);margin-bottom:10px;
+  }
+  .receipt-line{
+    display:flex;align-items:baseline;gap:6px;font-family:var(--font-mono);font-size:12.5px;
+    margin-bottom:5px;
+  }
+  .receipt-line .rname{white-space:nowrap;}
+  .receipt-line .rdots{flex:1;border-bottom:1px dotted var(--line);height:0.8em;}
+  .receipt-line .ramt{white-space:nowrap;}
+  .receipt-empty{font-family:var(--font-mono);font-size:12.5px;color:var(--ink-soft);text-align:center;padding:6px 0;}
+  .receipt-total{
+    display:flex;justify-content:space-between;font-family:var(--font-mono);font-weight:700;font-size:14px;
+    border-top:1.5px dashed var(--line);margin-top:10px;padding-top:10px;color:var(--money);
+  }
+
+  .empty-state{
+    border:1.5px dashed var(--line);border-radius:10px;padding:26px 16px;text-align:center;
+    color:var(--ink-soft);font-size:13.5px;background:var(--receipt-bg);
+  }
+  .empty-state button{
+    margin-top:12px;border:1.5px solid var(--ink);background:var(--ink);color:var(--paper);
+    border-radius:999px;padding:8px 16px;font-size:13px;
+  }
+
+  /* ---------- modal ---------- */
+  .overlay{
+    position:fixed;inset:0;background:rgba(34,37,45,0.45);display:flex;align-items:center;justify-content:center;
+    padding:20px;z-index:50;
+  }
+  .modal{
+    background:var(--receipt-bg);border-radius:16px;max-width:560px;width:100%;max-height:84vh;
+    overflow-y:auto;padding:22px 24px 24px;
+  }
+  .modal h2{font-family:var(--font-display);font-size:20px;font-weight:600;margin:0 0 4px;}
+  .modal .sub{font-size:12.5px;color:var(--ink-soft);margin:0 0 16px;}
+  .modal-close{
+    float:right;border:none;background:transparent;font-size:20px;color:var(--ink-soft);line-height:1;
+  }
+  .modal-close:hover{color:var(--ink);}
+
+  .chore-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .chore-row input[type="text"]{
+    flex:1;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font-size:13.5px;font-family:var(--font-body);
+  }
+  .chore-row .amt-wrap{display:flex;align-items:center;gap:3px;}
+  .chore-row .amt-wrap span{font-family:var(--font-mono);color:var(--ink-soft);}
+  .chore-row input[type="number"]{
+    width:76px;padding:8px 8px;border:1px solid var(--line);border-radius:8px;font-family:var(--font-mono);font-size:13.5px;
+  }
+  .chore-row button{
+    border:none;background:transparent;color:var(--danger);font-size:16px;padding:4px 6px;
+  }
+  .add-chore-btn{
+    margin-top:6px;border:1.5px dashed var(--line);background:transparent;border-radius:8px;
+    padding:9px;width:100%;font-size:13px;color:var(--ink-soft);
+  }
+  .add-chore-btn:hover{border-color:var(--ink);color:var(--ink);}
+  .modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
+  .modal-footer button{
+    border:1.5px solid var(--ink);border-radius:999px;padding:9px 18px;font-size:13.5px;font-weight:500;
+  }
+  .modal-footer .primary{background:var(--ink);color:var(--paper);}
+  .modal-footer .ghost{background:transparent;color:var(--ink);}
+
+  table.history-table{width:100%;border-collapse:collapse;font-size:13px;}
+  table.history-table th, table.history-table td{padding:9px 8px;text-align:left;border-bottom:1px solid var(--line);}
+  table.history-table th{font-family:var(--font-mono);font-size:11px;text-transform:uppercase;color:var(--ink-soft);}
+  table.history-table td.num{font-family:var(--font-mono);text-align:right;}
+  table.history-table tr.hist-row{cursor:pointer;}
+  table.history-table tr.hist-row:hover{background:var(--paper);}
+  .hist-loading, .hist-empty{padding:16px 4px;font-size:13px;color:var(--ink-soft);text-align:center;}
+
+  @media (max-width:640px){
+    .topbar{flex-direction:column;align-items:flex-start;}
+    .actions{width:100%;}
+    .actions button{flex:1;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    *{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-eyebrow" id="todayLabel">Today</span>
+      <h1>Chore Ledger</h1>
+    </div>
+    <div class="week-nav">
+      <button class="nav-circle" id="prevWeek" aria-label="Previous week">‹</button>
+      <div class="week-label" id="weekLabel"></div>
+      <button class="nav-circle" id="nextWeek" aria-label="Next week">›</button>
+      <button class="today-btn" id="thisWeekBtn">This week</button>
+    </div>
+    <div class="actions">
+      <button class="secondary" id="historyBtn">History</button>
+      <button id="manageBtn">Manage chores</button>
+    </div>
+  </header>
+  <main id="main">
+    <p class="hist-loading">Loading your ledger…</p>
+  </main>
+</div>
+<div id="modalRoot"></div>
+
+<script>
+(function(){
+  const DAY_LABELS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const MONTH_LABELS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  const state = {
+    choreTypes: [],
+    childNames: { A: 'Child A', B: 'Child B' },
+    currentMonday: mondayOf(new Date()),
+    weekData: { A: {}, B: {} },
+    ready: false
+  };
+
+  function mondayOf(d){
+    const date = new Date(d);
+    date.setHours(0,0,0,0);
+    const day = date.getDay();
+    const diff = (day === 0 ? -6 : 1 - day);
+    date.setDate(date.getDate() + diff);
+    return date;
+  }
+  function addDays(d,n){ const r = new Date(d); r.setDate(r.getDate()+n); return r; }
+  function iso(d){
+    const y = d.getFullYear(), m = String(d.getMonth()+1).padStart(2,'0'), day = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${day}`;
+  }
+  function weekKey(monday){ return 'week-' + iso(monday); }
+  function fmtMoney(n){ return '£' + (Math.round(n*100)/100).toFixed(2); }
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function shortDate(d){ return `${MONTH_LABELS[d.getMonth()]} ${d.getDate()}`; }
+  function weekRangeLabel(monday){
+    const sunday = addDays(monday,6);
+    return `${shortDate(monday)} – ${shortDate(sunday)}`;
+  }
+  function genId(){ return 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+
+  const NATIVE_STORAGE = (typeof window.storage !== 'undefined' && window.storage !== null);
+  const LOCAL_PREFIX = 'chore-ledger:';
+
+  async function storageGet(key){
+    if(NATIVE_STORAGE){
+      try{
+        const res = await window.storage.get(key, false);
+        if(!res || res.value === undefined || res.value === null) return null;
+        return JSON.parse(res.value);
+      }catch(e){ return null; }
+    }
+    try{
+      const v = window.localStorage.getItem(LOCAL_PREFIX + key);
+      return v ? JSON.parse(v) : null;
+    }catch(e){ return null; }
+  }
+  async function storageSet(key, value){
+    if(NATIVE_STORAGE){
+      try{
+        await window.storage.set(key, JSON.stringify(value), false);
+        return true;
+      }catch(e){ console.error('Storage save failed', e); return false; }
+    }
+    try{
+      window.localStorage.setItem(LOCAL_PREFIX + key, JSON.stringify(value));
+      return true;
+    }catch(e){ console.error('Storage save failed', e); return false; }
+  }
+  async function storageListPrefix(prefix){
+    if(NATIVE_STORAGE){
+      try{
+        const listRes = await window.storage.list(prefix, false);
+        const rawKeys = (listRes && listRes.keys) || [];
+        return rawKeys.map(k => typeof k === 'string' ? k : k.key).filter(Boolean);
+      }catch(e){ return []; }
+    }
+    try{
+      const keys = [];
+      for(let i=0;i<window.localStorage.length;i++){
+        const k = window.localStorage.key(i);
+        if(k && k.startsWith(LOCAL_PREFIX + prefix)) keys.push(k.slice(LOCAL_PREFIX.length));
+      }
+      return keys;
+    }catch(e){ return []; }
+  }
+
+  async function loadAll(){
+    const [choreTypes, childNames, weekData] = await Promise.all([
+      storageGet('chore-types'),
+      storageGet('child-names'),
+      storageGet(weekKey(state.currentMonday))
+    ]);
+    state.choreTypes = Array.isArray(choreTypes) ? choreTypes : [];
+    state.childNames = childNames || { A:'Child A', B:'Child B' };
+    state.weekData = weekData || { A:{}, B:{} };
+    state.weekData.A = state.weekData.A || {};
+    state.weekData.B = state.weekData.B || {};
+    state.ready = true;
+  }
+
+  async function loadWeek(monday){
+    const wd = await storageGet(weekKey(monday));
+    state.weekData = wd || { A:{}, B:{} };
+    state.weekData.A = state.weekData.A || {};
+    state.weekData.B = state.weekData.B || {};
+  }
+
+  function getRowsForChild(child){
+    const rows = [];
+    const seen = new Set();
+    for(const c of state.choreTypes){
+      rows.push({ id:c.id, name:c.name, amount:c.amount, legacy:false });
+      seen.add(c.id);
+    }
+    const childData = state.weekData[child] || {};
+    for(const choreId in childData){
+      if(seen.has(choreId)) continue;
+      const days = childData[choreId];
+      const first = Object.values(days)[0];
+      if(first) rows.push({ id:choreId, name:first.name, amount:first.amount, legacy:true });
+    }
+    return rows;
+  }
+
+  function weeklyTotal(child){
+    const childData = state.weekData[child] || {};
+    let total = 0;
+    for(const choreId in childData){
+      for(const day in childData[choreId]){
+        total += Number(childData[choreId][day].amount) || 0;
+      }
+    }
+    return total;
+  }
+
+  function receiptLines(child){
+    const childData = state.weekData[child] || {};
+    const map = {};
+    const order = [];
+    for(const choreId in childData){
+      for(const day in childData[choreId]){
+        const entry = childData[choreId][day];
+        if(!map[entry.name]){ map[entry.name] = { total:0, count:0 }; order.push(entry.name); }
+        map[entry.name].total += Number(entry.amount) || 0;
+        map[entry.name].count += 1;
+      }
+    }
+    return order.map(name => ({ name, total: map[name].total, count: map[name].count }));
+  }
+
+  function todayIdxForWeek(){
+    const today = mondayOf(new Date());
+    if(today.getTime() !== state.currentMonday.getTime()) return -1;
+    const t = new Date(); t.setHours(0,0,0,0);
+    return (t.getDay()+6)%7;
+  }
+
+  function render(){
+    document.getElementById('weekLabel').textContent = weekRangeLabel(state.currentMonday);
+    const now = new Date();
+    document.getElementById('todayLabel').textContent = `${DAY_LABELS[(now.getDay()+6)%7]}, ${shortDate(now)}`;
+    const main = document.getElementById('main');
+
+    if(state.choreTypes.length === 0 && Object.keys(state.weekData.A).length === 0 && Object.keys(state.weekData.B).length === 0){
+      main.innerHTML = `<div class="empty-state">
+        <div>No chores set up yet. Add a few chore types and how much each one earns to start tracking the week.</div>
+        <button id="emptyManageBtn">Add your first chore</button>
+      </div>`;
+      document.getElementById('emptyManageBtn').addEventListener('click', openManageModal);
+      return;
+    }
+
+    const todayIdx = todayIdxForWeek();
+    main.innerHTML = `<div class="cards">${renderChildCard('A', todayIdx)}${renderChildCard('B', todayIdx)}</div>`;
+  }
+
+  function renderChildCard(child, todayIdx){
+    const rows = getRowsForChild(child);
+    const total = weeklyTotal(child);
+    const lines = receiptLines(child);
+    const name = state.childNames[child] || (child === 'A' ? 'Child A' : 'Child B');
+
+    let head = `<tr><th class="chore-col">Chore</th>`;
+    for(let i=0;i<7;i++){
+      const d = addDays(state.currentMonday, i);
+      head += `<th class="${i===todayIdx?'today-col':''}">${DAY_LABELS[i]}<br>${d.getDate()}</th>`;
+    }
+    head += `</tr>`;
+
+    let body = '';
+    if(rows.length === 0){
+      body = `<tr><td colspan="8" style="text-align:center;color:var(--ink-soft);padding:16px;">No chores yet — add some from "Manage chores".</td></tr>`;
+    } else {
+      for(const row of rows){
+        body += `<tr>
+          <td class="chore-name">${escapeHtml(row.name)}<span class="amt">${fmtMoney(row.amount)}</span>${row.legacy?'<span class="legacy-tag">removed chore</span>':''}</td>`;
+        for(let i=0;i<7;i++){
+          const checked = !!(state.weekData[child][row.id] && state.weekData[child][row.id][i]);
+          body += `<td class="${i===todayIdx?'today-col':''}">
+            <button class="cell-check" aria-pressed="${checked}"
+              aria-label="${escapeHtml(row.name)} on ${DAY_LABELS[i]}"
+              data-action="toggle" data-child="${child}" data-chore="${row.id}" data-day="${i}"
+              data-name="${escapeHtml(row.name)}" data-amount="${row.amount}"></button>
+          </td>`;
+        }
+        body += `</tr>`;
+      }
+    }
+
+    let receiptHtml = '';
+    if(lines.length === 0){
+      receiptHtml = `<div class="receipt-empty">Nothing checked off yet this week</div>`;
+    } else {
+      receiptHtml = lines.map(l => `
+        <div class="receipt-line">
+          <span class="rname">${escapeHtml(l.name)} ×${l.count}</span>
+          <span class="rdots"></span>
+          <span class="ramt">${fmtMoney(l.total)}</span>
+        </div>`).join('');
+    }
+
+    return `
+    <section class="child-card" data-child="${child}">
+      <div class="card-head">
+        <div class="name-wrap">
+          <h2 class="child-name" contenteditable="true" spellcheck="false" data-child="${child}">${escapeHtml(name)}</h2>
+        </div>
+        <div class="running-total">${fmtMoney(total)}</div>
+      </div>
+      <div class="grid-wrap">
+        <table class="chore-grid">
+          <thead>${head}</thead>
+          <tbody>${body}</tbody>
+        </table>
+      </div>
+      <div class="receipt">
+        <div class="receipt-title">WEEKLY RECEIPT · ${escapeHtml(name).toUpperCase()}</div>
+        ${receiptHtml}
+        <div class="receipt-total"><span>Total earned</span><span>${fmtMoney(total)}</span></div>
+      </div>
+    </section>`;
+  }
+
+  async function toggleCell(child, choreId, day, name, amount){
+    if(!state.weekData[child][choreId]) state.weekData[child][choreId] = {};
+    if(state.weekData[child][choreId][day]){
+      delete state.weekData[child][choreId][day];
+      if(Object.keys(state.weekData[child][choreId]).length === 0) delete state.weekData[child][choreId];
+    } else {
+      state.weekData[child][choreId][day] = { name, amount };
+    }
+    render();
+    await storageSet(weekKey(state.currentMonday), state.weekData);
+  }
+
+  async function saveChildName(child, newName){
+    const clean = newName.trim() || (child === 'A' ? 'Child A' : 'Child B');
+    state.childNames[child] = clean;
+    await storageSet('child-names', state.childNames);
+    render();
+  }
+
+  document.getElementById('main').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action="toggle"]');
+    if(btn){
+      toggleCell(btn.dataset.child, btn.dataset.chore, Number(btn.dataset.day), btn.dataset.name, Number(btn.dataset.amount));
+    }
+  });
+  document.getElementById('main').addEventListener('focusout', (e) => {
+    const h = e.target.closest('.child-name');
+    if(h) saveChildName(h.dataset.child, h.textContent);
+  });
+  document.getElementById('main').addEventListener('keydown', (e) => {
+    if(e.target.closest('.child-name') && e.key === 'Enter'){
+      e.preventDefault();
+      e.target.blur();
+    }
+  });
+
+  document.getElementById('prevWeek').addEventListener('click', async () => {
+    state.currentMonday = addDays(state.currentMonday, -7);
+    await loadWeek(state.currentMonday);
+    render();
+  });
+  document.getElementById('nextWeek').addEventListener('click', async () => {
+    state.currentMonday = addDays(state.currentMonday, 7);
+    await loadWeek(state.currentMonday);
+    render();
+  });
+  document.getElementById('thisWeekBtn').addEventListener('click', async () => {
+    state.currentMonday = mondayOf(new Date());
+    await loadWeek(state.currentMonday);
+    render();
+  });
+
+  /* ---------- manage chores modal ---------- */
+  function openManageModal(){
+    const root = document.getElementById('modalRoot');
+    const draft = state.choreTypes.map(c => ({...c}));
+    function renderModal(){
+      root.innerHTML = `
+      <div class="overlay" id="manageOverlay">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="manageTitle">
+          <button class="modal-close" id="manageCloseX" aria-label="Close">×</button>
+          <h2 id="manageTitle">Manage chores</h2>
+          <p class="sub">Set the chore types your kids can complete, and how much each one pays.</p>
+          <div id="choreRows"></div>
+          <button class="add-chore-btn" id="addChoreBtn">+ Add chore</button>
+          <div class="modal-footer">
+            <button class="ghost" id="manageCancel">Cancel</button>
+            <button class="primary" id="manageSave">Save changes</button>
+          </div>
+        </div>
+      </div>`;
+      const rowsEl = document.getElementById('choreRows');
+      rowsEl.innerHTML = draft.map((c, idx) => `
+        <div class="chore-row" data-idx="${idx}">
+          <input type="text" value="${escapeHtml(c.name)}" placeholder="Chore name" data-field="name" data-idx="${idx}">
+          <div class="amt-wrap">
+            <span>£</span>
+            <input type="number" min="0" step="0.25" value="${c.amount}" data-field="amount" data-idx="${idx}">
+          </div>
+          <button data-action="remove" data-idx="${idx}" aria-label="Remove chore">×</button>
+        </div>`).join('') || `<p class="sub" style="margin:4px 0 8px;">No chores yet — add your first one below.</p>`;
+
+      rowsEl.querySelectorAll('input[data-field="name"]').forEach(inp => {
+        inp.addEventListener('input', e => { draft[+e.target.dataset.idx].name = e.target.value; });
+      });
+      rowsEl.querySelectorAll('input[data-field="amount"]').forEach(inp => {
+        inp.addEventListener('input', e => { draft[+e.target.dataset.idx].amount = parseFloat(e.target.value) || 0; });
+      });
+      rowsEl.querySelectorAll('[data-action="remove"]').forEach(b => {
+        b.addEventListener('click', e => {
+          draft.splice(+e.target.closest('[data-action="remove"]').dataset.idx, 1);
+          renderModal();
+        });
+      });
+      document.getElementById('addChoreBtn').addEventListener('click', () => {
+        draft.push({ id: genId(), name:'', amount:1 });
+        renderModal();
+      });
+      document.getElementById('manageCloseX').addEventListener('click', closeModal);
+      document.getElementById('manageCancel').addEventListener('click', closeModal);
+      document.getElementById('manageOverlay').addEventListener('click', e => { if(e.target.id === 'manageOverlay') closeModal(); });
+      document.getElementById('manageSave').addEventListener('click', async () => {
+        const cleaned = draft.filter(c => c.name.trim().length > 0).map(c => ({ id:c.id, name:c.name.trim(), amount: Number(c.amount) || 0 }));
+        state.choreTypes = cleaned;
+        await storageSet('chore-types', cleaned);
+        closeModal();
+        render();
+      });
+    }
+    function closeModal(){ root.innerHTML = ''; }
+    renderModal();
+  }
+  document.getElementById('manageBtn').addEventListener('click', openManageModal);
+
+  /* ---------- history modal ---------- */
+  async function openHistoryModal(){
+    const root = document.getElementById('modalRoot');
+    root.innerHTML = `
+    <div class="overlay" id="historyOverlay">
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="historyTitle">
+        <button class="modal-close" id="historyCloseX" aria-label="Close">×</button>
+        <h2 id="historyTitle">History</h2>
+        <p class="sub">Every week you've tracked, most recent first. Click a week to open it.</p>
+        <div id="historyBody"><p class="hist-loading">Loading past weeks…</p></div>
+      </div>
+    </div>`;
+    document.getElementById('historyCloseX').addEventListener('click', () => root.innerHTML = '');
+    document.getElementById('historyOverlay').addEventListener('click', e => { if(e.target.id === 'historyOverlay') root.innerHTML = ''; });
+
+    let keys = await storageListPrefix('week-');
+    keys.sort().reverse();
+    keys = keys.slice(0, 104);
+
+    const body = document.getElementById('historyBody');
+    if(keys.length === 0){
+      body.innerHTML = `<p class="hist-empty">No weeks tracked yet.</p>`;
+      return;
+    }
+
+    const rows = [];
+    for(const key of keys){
+      const data = await storageGet(key);
+      if(!data) continue;
+      const mondayStr = key.replace('week-','');
+      const monday = new Date(mondayStr + 'T00:00:00');
+      let totalA = 0, totalB = 0;
+      const dA = data.A || {}, dB = data.B || {};
+      for(const cid in dA) for(const d in dA[cid]) totalA += Number(dA[cid][d].amount) || 0;
+      for(const cid in dB) for(const d in dB[cid]) totalB += Number(dB[cid][d].amount) || 0;
+      if(totalA === 0 && totalB === 0 && Object.keys(dA).length === 0 && Object.keys(dB).length === 0) continue;
+      rows.push({ monday, totalA, totalB });
+    }
+
+    if(rows.length === 0){
+      body.innerHTML = `<p class="hist-empty">No weeks tracked yet.</p>`;
+      return;
+    }
+
+    body.innerHTML = `<table class="history-table">
+      <thead><tr>
+        <th>Week</th>
+        <th class="num">${escapeHtml(state.childNames.A)}</th>
+        <th class="num">${escapeHtml(state.childNames.B)}</th>
+        <th class="num">Combined</th>
+      </tr></thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr class="hist-row" data-monday="${iso(r.monday)}">
+            <td>${weekRangeLabel(r.monday)}</td>
+            <td class="num">${fmtMoney(r.totalA)}</td>
+            <td class="num">${fmtMoney(r.totalB)}</td>
+            <td class="num">${fmtMoney(r.totalA + r.totalB)}</td>
+          </tr>`).join('')}
+      </tbody>
+    </table>`;
+
+    body.querySelectorAll('.hist-row').forEach(tr => {
+      tr.addEventListener('click', async () => {
+        state.currentMonday = mondayOf(new Date(tr.dataset.monday + 'T00:00:00'));
+        await loadWeek(state.currentMonday);
+        root.innerHTML = '';
+        render();
+      });
+    });
+  }
+  document.getElementById('historyBtn').addEventListener('click', openHistoryModal);
+
+  (async function init(){
+    await loadAll();
+    render();
+  })();
+
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+})();
+</script>
+</body>
+</html>
